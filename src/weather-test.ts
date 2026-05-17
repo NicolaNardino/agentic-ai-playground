@@ -1,8 +1,6 @@
-/**
- * Direct Weather Underground API test — no MCP server required.
- * Set WU_API_KEY and WU_STATION_ID in your environment (or .env), then run:
- *   npm run weather:test
- */
+// Direct Weather Underground API test — no MCP server required.
+// Prints current conditions and the last 24 hours of hourly data for a PWS station.
+// Requires: WU_API_KEY, WU_STATION_ID
 
 const WU_BASE_URL = "https://api.weather.com";
 

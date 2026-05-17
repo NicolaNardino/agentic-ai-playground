@@ -1,3 +1,4 @@
+// Shared Strands tool definitions — imported by agent scripts and unit tests.
 import { tool } from "@strands-agents/sdk";
 import { z } from "zod";
 

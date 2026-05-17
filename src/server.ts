@@ -1,15 +1,20 @@
+// Express HTTP API — POST /api/chat proxies prompts to a Strands agent.
+// Supports a "backend" field in the request body: "bedrock" (default) or "ollama".
 import express from "express";
 import cors from "cors";
 import { Agent } from "@strands-agents/sdk";
 import { calculator, currentTime } from "./tools.js";
-import { makeBedrockModel } from "./models.js";
+import { makeBedrockModel, makeOllamaModel } from "./models.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.post("/api/chat", async (req, res) => {
-  const { prompt } = req.body as { prompt: string };
+  const { prompt, backend = "bedrock" } = req.body as {
+    prompt: string;
+    backend?: "bedrock" | "ollama";
+  };
 
   if (!prompt || typeof prompt !== "string") {
     res.status(400).json({ error: "prompt is required" });
@@ -17,7 +22,7 @@ app.post("/api/chat", async (req, res) => {
   }
 
   try {
-    const model = makeBedrockModel();
+    const model = backend === "ollama" ? makeOllamaModel() : makeBedrockModel();
     const agent = new Agent({ model, tools: [calculator, currentTime] });
     const result = await agent.invoke(prompt);
     res.json({ response: result.toString() });

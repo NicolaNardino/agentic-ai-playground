@@ -1,3 +1,5 @@
+// FastMCP server exposing Weather Underground PWS data as MCP tools over HTTP.
+// MCP endpoint: http://localhost:<WU_MCP_PORT>/mcp  (default port: 3003)
 import { FastMCP } from "fastmcp";
 import { z } from "zod";
 
@@ -81,7 +83,7 @@ const PORT = Number(process.env.WU_MCP_PORT ?? 3003);
 
 await server.start({
   transportType: "httpStream",
-  httpStream: { port: PORT, stateless: true },
+  httpStream: { port: PORT, stateless: true }, // stateless: new session per request, no server-side session storage
 });
 
 if (!process.env.WU_API_KEY) {

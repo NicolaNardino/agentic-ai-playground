@@ -1,20 +1,37 @@
-import { Agent } from "@strands-agents/sdk";
+// Main agent script: Ollama model (default) + built-in tools + live Weather Underground MCP tools.
+// Requires the MCP weather server to be running first (npm run weather:server).
+import { Agent, McpClient } from "@strands-agents/sdk";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { calculator, currentTime } from "./tools.js";
-import { makeBedrockModel } from "./models.js";
+import { makeOllamaModel } from "./models.js";
+
+const MCP_URL = process.env.WU_MCP_URL ?? "http://localhost:3003/mcp";
 
 async function main() {
+  const transport = new StreamableHTTPClientTransport(new URL(MCP_URL));
+  const mcpClient = new McpClient({ transport });
+  const weatherTools = await mcpClient.listTools();
+
+  console.log(`=== Strands Agent (Ollama + Weather MCP) ===`);
+  console.log(`MCP tools loaded: ${weatherTools.map((t) => t.name).join(", ")}\n`);
+
   const agent = new Agent({
-    model: makeBedrockModel(),
-    tools: [calculator, currentTime],
+    model: makeOllamaModel(),
+    tools: [calculator, currentTime, ...weatherTools],
   });
 
-  console.log("=== Strands Agent (AWS Bedrock) ===\n");
+  const stationId = process.env.WU_STATION_ID;
+  if (!stationId) {
+    throw new Error("WU_STATION_ID environment variable is required");
+  }
 
   const result = await agent.invoke(
-    "What is 42 multiplied by 7? Also, what time is it right now?"
+    `What is 42 multiplied by 7? What time is it? Also get the current weather for station ${stationId} and summarise it.`
   );
 
   console.log("Agent result:", result.toString());
+
+  await mcpClient.disconnect();
 }
 
 main().catch(console.error);
