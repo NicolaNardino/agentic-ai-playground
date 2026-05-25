@@ -1,9 +1,9 @@
-// Main agent script: Ollama model (default) + built-in tools + live Weather Underground MCP tools.
+// Main agent script: Anthropic model + built-in tools + live Weather Underground MCP tools.
 // Requires the MCP weather server to be running first (npm run weather:server).
 import { Agent, McpClient } from "@strands-agents/sdk";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { calculator, currentTime } from "./tools.js";
-import { makeOllamaModel } from "./models.js";
+import { makeAnthropicModel, ANTHROPIC_DEFAULT_MODEL } from "./models.js";
 
 const MCP_URL = process.env.WU_MCP_URL ?? "http://localhost:3003/mcp";
 
@@ -12,11 +12,12 @@ async function main() {
   const mcpClient = new McpClient({ transport });
   const weatherTools = await mcpClient.listTools();
 
-  console.log(`=== Strands Agent (Ollama + Weather MCP) ===`);
+  const modelId = process.env.ANTHROPIC_MODEL_ID ?? ANTHROPIC_DEFAULT_MODEL;
+  console.log(`=== Strands Agent (Anthropic ${modelId} + Weather MCP) ===`);
   console.log(`MCP tools loaded: ${weatherTools.map((t) => t.name).join(", ")}\n`);
 
   const agent = new Agent({
-    model: makeOllamaModel(),
+    model: makeAnthropicModel(),
     tools: [calculator, currentTime, ...weatherTools],
   });
 

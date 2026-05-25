@@ -74,7 +74,7 @@ TypeScript playground for the [AWS Strands Agents SDK](https://github.com/strand
 
 ```bash
 npm run ollama           # Strands agent via Ollama/Qwen3 (requires Ollama running locally)
-npm run strands          # Strands agent via AWS Bedrock (requires AWS credentials)
+npm run strands          # Strands agent via Anthropic API + Weather MCP (requires ANTHROPIC_API_KEY)
 npm run server           # Express chat API server on port 3001
 npm run weather:server   # FastMCP Weather Underground MCP server on port 3003
 npm run weather:test     # Direct WU API test — no server needed (requires WU_API_KEY, WU_STATION_ID)
@@ -96,24 +96,25 @@ All shared logic lives in exactly two modules. Agent scripts and tests import fr
 | File | Purpose |
 |---|---|
 | `src/tools.ts` | Shared tool definitions (`calculator`, `current_time`) |
-| `src/models.ts` | Model factory functions (`makeOllamaModel`, `makeBedrockModel`) |
+| `src/models.ts` | Model factory functions (`makeOllamaModel`, `makeAnthropicModel`, `makeBedrockModel`) |
 | `src/ollama-agent.ts` | Runnable script: Strands agent backed by local Ollama/Qwen3 |
-| `src/strands-agent.ts` | Runnable script: Strands agent backed by AWS Bedrock |
-| `src/server.ts` | Express HTTP API — `POST /api/chat` proxies prompts to either agent backend |
-| `src/mcp-weather-server.ts` | FastMCP server: Weather Underground PWS tools over HTTP on port 3003 |
-| `src/weather-test.ts` | Direct REST test — current conditions + 24h hourly history from WU API |
-| `src/polyfill.ts` | `Symbol.dispose` / `Symbol.asyncDispose` shim for Node < 20 |
+| `src/strands-agent.ts` | Runnable script: Strands agent backed by Anthropic API + Weather MCP |
+| `src/server.ts` | Express HTTP API — `POST /api/chat` proxies prompts to Anthropic (default), Ollama, or Bedrock |
+| `src/mcp/mcp-weather-server.ts` | FastMCP server: Weather Underground PWS tools over HTTP on port 3003 |
+| `src/weather/main.ts` | Entry point for `npm run weather:test` — orchestrates the three print functions |
+| `src/weather/weather-test.ts` | Exported helpers: `testCurrentConditions`, `testHourlyHistory`, `getDailySummaries`, `getDailySummary` |
+| `src/weather/types.ts` | WU API response interfaces (`Metric`, `Observation`, `DailySummary`, etc.) |
 | `tests/` | Vitest unit tests — `tools.test.ts`, `models.test.ts`, `agent.test.ts` |
 
 ## Key design decisions
 
-**Ollama is wired through Strands' OpenAI-compatible provider** — not via an Ollama SDK. `makeOllamaModel()` points `OpenAIModel` at Ollama's `/v1` endpoint. Both agent scripts use the identical `Agent` API; swapping backends is a one-line model factory change.
+**Ollama is wired through Strands' OpenAI-compatible provider** — not via an Ollama SDK. `makeOllamaModel()` points `OpenAIModel` at Ollama's `/v1` endpoint. All agent scripts use the identical `Agent` API; swapping backends is a one-line model factory change.
 
 **Tests call `tool.invoke()` directly** — no LLM, no mocking. The Strands `tool()` wrapper exposes `.invoke({ ... })` for unit testing. All tool tests in `tests/tools.test.ts` use this pattern.
 
 **FastMCP weather server is stateless** — `start({ httpStream: { stateless: true } })` creates a new session per request. The MCP endpoint is at `http://localhost:3003/mcp`. The three tools (`get_current_conditions`, `get_hourly_history`, `get_daily_history`) all call the IBM Weather Company API (`api.weather.com`) using `WU_API_KEY` from the environment.
 
-**Pre-existing typecheck error** — `src/polyfill.ts` produces a `TS2352` conversion error that existed before any changes here. `npm run typecheck` is still useful for catching errors in other files.
+**WU API tier split** — `getDailySummaries` uses `/v2/pws/dailysummary/7day` (free PWS-owner tier). `getDailySummary(stationId, date)` uses `/v2/pws/history/daily?date=YYYYMMDD`, which requires a paid subscription; it returns no data on a free key.
 
 ## Environment
 

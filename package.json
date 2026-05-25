@@ -10,7 +10,7 @@
     "ollama": "tsx --import dotenv/config src/ollama-agent.ts",
     "server": "tsx --import dotenv/config src/server.ts",
     "weather:server": "tsx --import dotenv/config src/mcp/weather-server.ts",
-    "weather:test": "tsx --import dotenv/config src/weather-test.ts",
+    "weather:test": "tsx --import dotenv/config src/weather/main.ts",
     "ui": "cd src/ui && npm install && npm run dev",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
@@ -31,7 +31,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.5.0",
     "vitest": "^2.1.9"
   }
