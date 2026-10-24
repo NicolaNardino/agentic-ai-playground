@@ -74,11 +74,13 @@ TypeScript playground for the [AWS Strands Agents SDK](https://github.com/strand
 
 ```bash
 npm run ollama           # Strands agent via Ollama/Qwen3 (requires Ollama running locally)
+npm run multi-agent      # Coordinator + weather specialist agents (args: [backend] ["prompt"], default ollama)
+npm run compare          # Same prompt on every backend: latency, tokens, answers
 npm run strands          # Strands agent via Anthropic API + Weather MCP (requires ANTHROPIC_API_KEY)
 npm run server           # Express chat API server on port 3001
 npm run weather:server   # FastMCP Weather Underground MCP server on port 3003
 npm run weather:test     # Direct WU API test — no server needed (requires WU_API_KEY, WU_STATION_ID)
-npm test                 # Run all Vitest unit tests (no LLM calls made)
+npm test                 # Run all Vitest unit and route tests (no LLM or network calls)
 npm run test:watch       # Watch mode
 npm run typecheck        # Type-check without emitting
 npm run build            # Compile to dist/
@@ -99,23 +101,32 @@ Agent logic lives in two shared modules (`tools.ts`, `models.ts`); Weather Under
 
 | File | Purpose |
 |---|---|
-| `src/tools.ts` | Shared tool definitions (`calculator`, `current_time`) |
+| `src/tools.ts` | Shared tool definitions (`calculator`, `current_time`, `web_fetch`, `weather_history`) |
+| `src/chat.ts` | Chat plumbing: `parseChatRequest`, `ChatSessions` (one agent per session, LRU-capped), `toChatEvent` (Strands stream event → UI event) |
 | `src/models.ts` | Model factory functions (`makeOllamaModel`, `makeAnthropicModel`, `makeBedrockModel`) and `makeModel(backend)` over the `Backend` union |
 | `src/ollama-agent.ts` | Runnable script: Strands agent backed by local Ollama/Qwen3 |
 | `src/strands-agent.ts` | Runnable script: Strands agent backed by Anthropic API + Weather MCP |
-| `src/server.ts` | Express HTTP API — `POST /api/chat` proxies prompts to Anthropic (default), Ollama, or Bedrock; unknown backends get a 400 |
-| `src/mcp/mcp-weather-server.ts` | FastMCP server: Weather Underground PWS tools over HTTP on port 3003 |
+| `src/server.ts` | Express HTTP API — `POST /api/chat` (JSON) and `POST /api/chat/stream` (NDJSON); exports `app` and only listens when run directly |
+| `src/multi-agent.ts` | Runnable script: coordinator agent delegating to a weather specialist agent via `asTool()` |
+| `src/compare-backends.ts` | Runnable script: one prompt on every backend, prints latency/tokens/answers |
+| `src/mcp/mcp-weather-server.ts` | FastMCP server entry point: Weather Underground PWS tools over HTTP on port 3003 |
+| `src/mcp/weather-tools.ts` | `registerWeatherTools(server)` — the MCP tool definitions, testable without a server |
+| `src/mcp/weather-mcp-client.ts` | `connectWeatherMcp` / `tryConnectWeatherMcp` — agent side of the MCP server |
 | `src/weather/client.ts` | Shared WU API client (`wuFetch`, `requireEnv`) — used by the MCP server, the CLI test and `strands-agent.ts` |
 | `src/weather/main.ts` | Entry point for `npm run weather:test` — orchestrates the three print functions |
 | `src/weather/weather-test.ts` | Exported helpers: `testCurrentConditions`, `testHourlyHistory`, `getDailySummaries`, `getDailySummary` |
 | `src/weather/types.ts` | WU API response interfaces (`Metric`, `Observation`, `DailySummary`, etc.) |
-| `tests/` | Vitest unit tests — `tools.test.ts`, `models.test.ts`, `agent.test.ts` |
+| `tests/` | Vitest tests; `helpers/scripted-model.ts` is a fake Strands model that replays scripted turns, `helpers/fetch-stub.ts` stubs `fetch` |
 
 ## Key design decisions
 
 **Ollama is wired through Strands' OpenAI-compatible provider** — not via an Ollama SDK. `makeOllamaModel()` points `OpenAIModel` at Ollama's `/v1` endpoint. All agent scripts use the identical `Agent` API; swapping backends is a one-line model factory change.
 
-**Tests call `tool.invoke()` directly** — no LLM, no mocking. The Strands `tool()` wrapper exposes `.invoke({ ... })` for unit testing. All tool tests in `tests/tools.test.ts` use this pattern.
+**Tests call `tool.invoke()` directly** — no LLM. The Strands `tool()` wrapper exposes `.invoke({ ... })` for unit testing; tools that call HTTP APIs are tested with `stubFetch`. Agent-level behaviour (streaming events, sessions, routes) runs against `ScriptedModel`; `server.test.ts` swaps it in with `vi.mock("../src/models.js")`.
+
+**The chat server keeps one agent per `sessionId`** (`ChatSessions`, LRU-capped at `MAX_SESSIONS`). Switching backend builds a new agent seeded with the session's messages; if that fails (e.g. no API key) the session is kept unchanged. The weather MCP tools are added to new agents when the MCP server is reachable (retried at most every 30 s).
+
+**`web_fetch` is deliberately read-only** (GET, text only, capped) — not the SDK's vended `http_request`, which also allows POST/PUT/DELETE.
 
 **FastMCP weather server is stateless** — `start({ httpStream: { stateless: true } })` creates a new session per request. The MCP endpoint is at `http://localhost:3003/mcp`. The three tools (`get_current_conditions`, `get_hourly_history`, `get_daily_history`) all call the IBM Weather Company API (`api.weather.com`) using `WU_API_KEY` from the environment.
 
@@ -137,6 +148,8 @@ ANTHROPIC_MODEL_ID=claude-sonnet-4-6
 WU_API_KEY=...           # Weather Underground API key
 WU_STATION_ID=...        # Your PWS station ID (e.g. IXXXXX1)
 WU_MCP_PORT=3003         # MCP server port (default: 3003)
+WU_MCP_URL=http://localhost:3003/mcp      # MCP endpoint agents connect to
+WEATHER_DASHBOARD_URL=http://localhost:3000  # weather-dashboard app for weather_history
 ```
 
 ## Adding new Strands tools

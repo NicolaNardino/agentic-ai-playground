@@ -8,9 +8,12 @@ A TypeScript playground built around three main components:
 
 ## Features
 
-- **Chat UI** — browser front-end for sending prompts and reading responses from the agent backend
-- **Strands agent via AWS Bedrock, Anthropic, or Ollama** — runs any supported model through the Strands SDK with built-in tools (`calculator`, `current_time`); Ollama is wired through Strands' OpenAI-compatible provider so all backends share the same agent API
-- **Express chat API** — `POST /api/chat` endpoint that proxies prompts from the UI to the Strands agent; supports a `backend` field (`"anthropic"` (default), `"ollama"` or `"bedrock"`)
+- **Chat UI** — browser front-end that streams the agent's answer as it is written, shows each tool call (input and output), keeps the conversation per session ("New chat" starts over), and shows time and token use per answer
+- **Strands agent via AWS Bedrock, Anthropic, or Ollama** — runs any supported model through the Strands SDK; Ollama is wired through Strands' OpenAI-compatible provider so all backends share the same agent API
+- **Agent tools** — `calculator`, `current_time`, `web_fetch` (read-only page fetch, text only, capped at 8000 characters), `weather_history` (your station's recorded history from the [weather-dashboard](https://github.com/NicolaNardino/weather-dashboard) app), plus the Weather Underground MCP tools when the MCP server is running
+- **Express chat API** — `POST /api/chat` (JSON) and `POST /api/chat/stream` (NDJSON events) proxy prompts to the Strands agent; body fields `prompt`, `backend` (`"anthropic"` (default), `"ollama"` or `"bedrock"`) and an optional `sessionId` to keep the conversation
+- **Multi-agent demo** — a coordinator agent that delegates weather questions to a weather specialist agent (agent as tool)
+- **Backend comparison** — runs one prompt on every backend and prints latency, token use and answers
 - **Weather Underground MCP server** — stateless MCP server exposing three tools over HTTP:
   - `get_current_conditions` — live PWS observations
   - `get_hourly_history` — 7-day hourly history
@@ -35,11 +38,13 @@ cp .env.example .env   # fill in your credentials
 ```bash
 npm run strands          # run the Strands agent via Anthropic + Weather MCP tools (start weather:server first)
 npm run ollama           # run the Strands agent via local Ollama
+npm run multi-agent      # coordinator + weather specialist agents (args: [backend] ["prompt"], default ollama)
+npm run compare          # same prompt on every backend (arg: ["prompt"])
 npm run server           # start the Express chat API on port 3001
 npm run ui               # install and start the chat UI (Vite dev server, proxies /api to port 3001)
 npm run weather:server   # start the FastMCP Weather Underground server on port 3003
 npm run weather:test     # test WU API credentials directly (no server needed)
-npm test                 # run all unit tests (no LLM or network calls)
+npm test                 # run all unit and route tests (no LLM or network calls)
 npm run typecheck        # type-check without emitting
 npm run build            # compile to dist/
 ```
@@ -55,13 +60,29 @@ npm run ui
 
 The UI lets you pick the backend per request (Ollama, Anthropic or Bedrock; Ollama is the default). A backend without credentials returns an error message in the chat.
 
+The weather tools are optional: the Weather Underground tools need `npm run weather:server` running, and `weather_history` needs the weather-dashboard app (default `http://localhost:3000`).
+
 ### Chat API
 
 ```bash
 curl -X POST http://localhost:3001/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "What is 42 multiplied by 7?"}'
+  -d '{"prompt": "What is 42 multiplied by 7?", "backend": "ollama"}'
 ```
+
+Returns `{ "response": "...", "usage": { "inputTokens": 0, "outputTokens": 0 } }`.
+
+`POST /api/chat/stream` takes the same body and returns newline-delimited JSON events:
+
+| Event | Fields |
+|---|---|
+| `text` | `text` — a piece of the answer |
+| `tool_start` | `id`, `name`, `input` |
+| `tool_end` | `id`, `status` (`success` / `error`), `output` (first 2000 characters) |
+| `done` | `durationMs`, `usage` |
+| `error` | `error` |
+
+Pass the same `sessionId` on each request to keep the conversation. Changing `backend` within a session keeps the history.
 
 ### MCP endpoint
 
@@ -78,8 +99,11 @@ src/
   index.ts              # lists the runnable scripts
   strands-agent.ts      # runnable Strands agent (Anthropic + Weather MCP)
   ollama-agent.ts       # runnable Strands agent (local Ollama via OpenAI-compatible provider)
-  server.ts             # Express HTTP API
-  tools.ts              # shared tool definitions (calculator, current_time)
+  multi-agent.ts        # coordinator agent + weather specialist agent
+  compare-backends.ts   # same prompt on every backend
+  server.ts             # Express HTTP API (JSON and streaming routes)
+  chat.ts               # chat request validation, per-session agents, stream event mapping
+  tools.ts              # shared tool definitions (calculator, current_time, web_fetch, weather_history)
   models.ts             # model factory functions (Bedrock, Anthropic, Ollama) + makeModel(backend)
   weather/
     client.ts           # shared WU API client (wuFetch, requireEnv)
@@ -87,12 +111,19 @@ src/
     weather-test.ts     # print helpers for current, hourly and daily data
     types.ts            # WU API response types
   mcp/
-    mcp-weather-server.ts  # FastMCP Weather Underground MCP server
+    mcp-weather-server.ts  # FastMCP Weather Underground MCP server (entry point)
+    weather-tools.ts       # the server's tool definitions
+    weather-mcp-client.ts  # connects agents to the MCP server
   ui/                   # browser chat UI (Vite/React — App.tsx, main.tsx)
 tests/
   tools.test.ts
   models.test.ts
   agent.test.ts
+  chat.test.ts
+  server.test.ts            # route tests against the real Express app with a scripted model
+  weather-client.test.ts
+  mcp-weather-tools.test.ts
+  helpers/                  # scripted fake model, fetch stub
 .github/workflows/ci.yml  # GitHub Actions CI
 ```
 
@@ -120,4 +151,6 @@ The tests make no LLM or network calls, so CI needs no secrets.
 | `WU_API_KEY` | Weather Underground API key |
 | `WU_STATION_ID` | PWS station ID (e.g. `IXXXXX1`) |
 | `WU_MCP_PORT` | MCP server port (default: `3003`) |
-| `WU_MCP_URL` | MCP endpoint used by `npm run strands` (default: `http://localhost:3003/mcp`) |
+| `WU_MCP_URL` | MCP endpoint the agents connect to (default: `http://localhost:3003/mcp`) |
+| `WEATHER_DASHBOARD_URL` | weather-dashboard app used by `weather_history` (default: `http://localhost:3000`) |
+| `PORT` | Chat API port (default: `3001`) |
