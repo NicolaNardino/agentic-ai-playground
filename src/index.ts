@@ -1,7 +1,10 @@
-// Entry point — run individual agents via npm scripts:
-//   npm run strands   → Bedrock-backed agent (requires AWS credentials)
+// Entry point — lists the runnable npm scripts.
 
 console.log("Strands Agents Experiments");
 console.log("==========================");
-console.log("  npm run strands  — AWS Strands + Bedrock (Claude)");
-console.log("  npm test         — run unit tests");
+console.log("  npm run strands         — Strands agent (Anthropic) + Weather MCP tools");
+console.log("  npm run ollama          — Strands agent via local Ollama");
+console.log("  npm run server          — Express chat API on port 3001");
+console.log("  npm run weather:server  — Weather Underground MCP server on port 3003");
+console.log("  npm run weather:test    — direct Weather Underground API test");
+console.log("  npm test                — run unit tests");

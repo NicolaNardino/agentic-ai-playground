@@ -9,7 +9,7 @@
     "strands": "tsx --import dotenv/config src/strands-agent.ts",
     "ollama": "tsx --import dotenv/config src/ollama-agent.ts",
     "server": "tsx --import dotenv/config src/server.ts",
-    "weather:server": "tsx --import dotenv/config src/mcp/weather-server.ts",
+    "weather:server": "tsx --import dotenv/config src/mcp/mcp-weather-server.ts",
     "weather:test": "tsx --import dotenv/config src/weather/main.ts",
     "ui": "cd src/ui && npm install && npm run dev",
     "build": "tsc",

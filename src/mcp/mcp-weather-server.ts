@@ -2,29 +2,11 @@
 // MCP endpoint: http://localhost:<WU_MCP_PORT>/mcp  (default port: 3003)
 import { FastMCP } from "fastmcp";
 import { z } from "zod";
+import { wuFetch } from "../weather/client.js";
 
-const WU_BASE_URL = "https://api.weather.com";
-
-function requireApiKey(): string {
-  const key = process.env.WU_API_KEY;
-  if (!key) throw new Error("WU_API_KEY environment variable is required");
-  return key;
-}
-
-async function wuFetch(path: string, params: Record<string, string>): Promise<string> {
-  const url = new URL(`${WU_BASE_URL}${path}`);
-  url.searchParams.set("apiKey", requireApiKey());
-  url.searchParams.set("format", "json");
-  url.searchParams.set("numericPrecision", "decimal");
-  for (const [k, v] of Object.entries(params)) {
-    url.searchParams.set(k, v);
-  }
-  const res = await fetch(url.toString());
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Weather Underground API ${res.status}: ${body}`);
-  }
-  return JSON.stringify(await res.json(), null, 2);
+// FastMCP tool results must be strings, so the parsed API response is re-serialized.
+async function wuFetchText(path: string, params: Record<string, string>): Promise<string> {
+  return JSON.stringify(await wuFetch(path, params), null, 2);
 }
 
 const unitsParam = z
@@ -49,7 +31,7 @@ server.addTool({
   }),
   annotations: { readOnlyHint: true, openWorldHint: true },
   execute: async ({ stationId, units }) =>
-    wuFetch("/v2/pws/observations/current", { stationId, units }),
+    wuFetchText("/v2/pws/observations/current", { stationId, units }),
 });
 
 server.addTool({
@@ -62,7 +44,7 @@ server.addTool({
   }),
   annotations: { readOnlyHint: true, openWorldHint: true },
   execute: async ({ stationId, units }) =>
-    wuFetch("/v2/pws/observations/hourly/7day", { stationId, units }),
+    wuFetchText("/v2/pws/observations/hourly/7day", { stationId, units }),
 });
 
 server.addTool({
@@ -76,7 +58,7 @@ server.addTool({
   }),
   annotations: { readOnlyHint: true, openWorldHint: true },
   execute: async ({ stationId, date, units }) =>
-    wuFetch("/v2/pws/history/daily", { stationId, date, units }),
+    wuFetchText("/v2/pws/history/daily", { stationId, date, units }),
 });
 
 const PORT = Number(process.env.WU_MCP_PORT ?? 3003);
