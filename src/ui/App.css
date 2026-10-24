@@ -91,12 +91,43 @@ body {
 .bubble.user .bubble-text { background: #2b4a7e; }
 .bubble.error .bubble-text { background: #3d1f1f; color: #fc8181; }
 
-.bubble.loading .dots {
-  color: #718096;
-  font-style: italic;
-  font-size: 0.9rem;
-  padding: 10px 14px;
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+.new-chat-btn {
+  background: transparent;
+  color: #e2e8f0;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
 }
+
+.new-chat-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.tool-call {
+  background: #161b26;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: #a0aec0;
+}
+
+.tool-call summary { cursor: pointer; font-family: ui-monospace, monospace; }
+.tool-call.error summary { color: #fc8181; }
+.tool-call.running summary { font-style: italic; }
+
+.tool-detail {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.bubble-meta { font-size: 0.72rem; color: #4a5568; }
 
 .input-row {
   display: flex;
