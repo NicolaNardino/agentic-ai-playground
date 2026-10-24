@@ -8,6 +8,8 @@
     "start": "tsx src/index.ts",
     "strands": "tsx --import dotenv/config src/strands-agent.ts",
     "ollama": "tsx --import dotenv/config src/ollama-agent.ts",
+    "multi-agent": "tsx --import dotenv/config src/multi-agent.ts",
+    "compare": "tsx --import dotenv/config src/compare-backends.ts",
     "server": "tsx --import dotenv/config src/server.ts",
     "weather:server": "tsx --import dotenv/config src/mcp/mcp-weather-server.ts",
     "weather:test": "tsx --import dotenv/config src/weather/main.ts",
