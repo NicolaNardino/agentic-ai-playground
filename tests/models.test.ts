@@ -2,8 +2,12 @@ import { describe, it, expect, afterEach } from "vitest";
 import {
   makeOllamaModel,
   makeBedrockModel,
+  makeModel,
+  isBackend,
+  BACKENDS,
   OLLAMA_DEFAULT_MODEL,
   BEDROCK_DEFAULT_MODEL,
+  ANTHROPIC_DEFAULT_MODEL,
 } from "../src/models.js";
 
 describe("makeOllamaModel", () => {
@@ -54,5 +58,29 @@ describe("makeBedrockModel", () => {
     process.env.STRANDS_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001";
     const model = makeBedrockModel();
     expect(model.modelId).toBe("us.anthropic.claude-haiku-4-5-20251001");
+  });
+});
+
+describe("makeModel", () => {
+  afterEach(() => {
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  it("builds the model for each backend", () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"; // the Anthropic provider rejects a missing key at construction
+    expect(makeModel("ollama").modelId).toBe(OLLAMA_DEFAULT_MODEL);
+    expect(makeModel("bedrock").modelId).toBe(BEDROCK_DEFAULT_MODEL);
+    expect(makeModel("anthropic").modelId).toBe(ANTHROPIC_DEFAULT_MODEL);
+  });
+});
+
+describe("isBackend", () => {
+  it("accepts every known backend", () => {
+    for (const b of BACKENDS) expect(isBackend(b)).toBe(true);
+  });
+
+  it("rejects unknown values", () => {
+    expect(isBackend("openai")).toBe(false);
+    expect(isBackend(undefined)).toBe(false);
   });
 });

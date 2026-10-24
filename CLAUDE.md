@@ -80,7 +80,7 @@ npm run weather:server   # FastMCP Weather Underground MCP server on port 3003
 npm run weather:test     # Direct WU API test — no server needed (requires WU_API_KEY, WU_STATION_ID)
 npm test                 # Run all Vitest unit tests (no LLM calls made)
 npm run test:watch       # Watch mode
-npm run typecheck        # Type-check without emitting — one pre-existing error in polyfill.ts is expected
+npm run typecheck        # Type-check without emitting
 npm run build            # Compile to dist/
 ```
 
@@ -89,18 +89,23 @@ npm run build            # Compile to dist/
 npx vitest run tests/tools.test.ts
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on push / PR to `main` under Node 22 with two jobs: **agent** (`npm ci`, `typecheck`, `test`, `build` at the root) and **ui** (`npm ci` + `npm run build` in `src/ui`). Tests make no LLM or network calls, so CI needs no secrets.
+
 ## Architecture
 
-All shared logic lives in exactly two modules. Agent scripts and tests import from these; never duplicate definitions.
+Agent logic lives in two shared modules (`tools.ts`, `models.ts`); Weather Underground access lives in `src/weather/client.ts`. Agent scripts and tests import from these; never duplicate definitions.
 
 | File | Purpose |
 |---|---|
 | `src/tools.ts` | Shared tool definitions (`calculator`, `current_time`) |
-| `src/models.ts` | Model factory functions (`makeOllamaModel`, `makeAnthropicModel`, `makeBedrockModel`) |
+| `src/models.ts` | Model factory functions (`makeOllamaModel`, `makeAnthropicModel`, `makeBedrockModel`) and `makeModel(backend)` over the `Backend` union |
 | `src/ollama-agent.ts` | Runnable script: Strands agent backed by local Ollama/Qwen3 |
 | `src/strands-agent.ts` | Runnable script: Strands agent backed by Anthropic API + Weather MCP |
-| `src/server.ts` | Express HTTP API — `POST /api/chat` proxies prompts to Anthropic (default), Ollama, or Bedrock |
+| `src/server.ts` | Express HTTP API — `POST /api/chat` proxies prompts to Anthropic (default), Ollama, or Bedrock; unknown backends get a 400 |
 | `src/mcp/mcp-weather-server.ts` | FastMCP server: Weather Underground PWS tools over HTTP on port 3003 |
+| `src/weather/client.ts` | Shared WU API client (`wuFetch`, `requireEnv`) — used by the MCP server, the CLI test and `strands-agent.ts` |
 | `src/weather/main.ts` | Entry point for `npm run weather:test` — orchestrates the three print functions |
 | `src/weather/weather-test.ts` | Exported helpers: `testCurrentConditions`, `testHourlyHistory`, `getDailySummaries`, `getDailySummary` |
 | `src/weather/types.ts` | WU API response interfaces (`Metric`, `Observation`, `DailySummary`, etc.) |
@@ -118,7 +123,7 @@ All shared logic lives in exactly two modules. Agent scripts and tests import fr
 
 ## Environment
 
-Copy `.env.example` to `.env`. All `tsx` scripts pass `--env-file=.env` so the file is loaded automatically by Node — no dotenv package needed.
+Copy `.env.example` to `.env`. All `tsx` scripts run with `--import dotenv/config`, so the file is loaded automatically (and is optional).
 
 ```
 OLLAMA_HOST=http://localhost:11434

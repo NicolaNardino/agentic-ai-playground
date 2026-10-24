@@ -13,12 +13,13 @@ export interface BedrockConfig {
   modelId?: string;
 }
 
+export const OLLAMA_DEFAULT_HOST = "http://localhost:11434";
 export const OLLAMA_DEFAULT_MODEL = "qwen3:8b";
 export const BEDROCK_DEFAULT_MODEL = "us.anthropic.claude-sonnet-4-5";
 export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export function makeOllamaModel(config: OllamaConfig = {}): OpenAIModel {
-  const host  = config.host  ?? process.env.OLLAMA_HOST  ?? "http://localhost:11434";
+  const host  = config.host  ?? process.env.OLLAMA_HOST  ?? OLLAMA_DEFAULT_HOST;
   const model = config.model ?? process.env.OLLAMA_MODEL ?? OLLAMA_DEFAULT_MODEL;
   return new OpenAIModel({
     api: "chat",
@@ -45,4 +46,20 @@ export function makeAnthropicModel(config: AnthropicConfig = {}): AnthropicModel
     modelId: config.modelId ?? process.env.ANTHROPIC_MODEL_ID ?? ANTHROPIC_DEFAULT_MODEL,
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
+}
+
+export const BACKENDS = ["anthropic", "ollama", "bedrock"] as const;
+export type Backend = (typeof BACKENDS)[number];
+
+export function isBackend(value: unknown): value is Backend {
+  return BACKENDS.includes(value as Backend);
+}
+
+/** Builds the model for a backend using env/default configuration. */
+export function makeModel(backend: Backend): AnthropicModel | OpenAIModel | BedrockModel {
+  switch (backend) {
+    case "anthropic": return makeAnthropicModel();
+    case "ollama":    return makeOllamaModel();
+    case "bedrock":   return makeBedrockModel();
+  }
 }

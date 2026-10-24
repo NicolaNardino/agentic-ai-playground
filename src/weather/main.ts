@@ -1,4 +1,5 @@
-import { requireEnv, testCurrentConditions, testHourlyHistory, getDailySummaries, getDailySummary } from "./weather-test.js";
+import { requireEnv } from "./client.js";
+import { testCurrentConditions, testHourlyHistory, getDailySummaries, getDailySummary } from "./weather-test.js";
 
 async function main(): Promise<void> {
   const stationId = requireEnv("WU_STATION_ID");

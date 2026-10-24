@@ -4,29 +4,26 @@ import express from "express";
 import cors from "cors";
 import { Agent } from "@strands-agents/sdk";
 import { calculator, currentTime } from "./tools.js";
-import { makeAnthropicModel, makeBedrockModel, makeOllamaModel } from "./models.js";
+import { BACKENDS, isBackend, makeModel } from "./models.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.post("/api/chat", async (req, res) => {
-  const { prompt, backend = "anthropic" } = req.body as {
-    prompt: string;
-    backend?: "anthropic" | "ollama" | "bedrock";
-  };
+  const { prompt, backend = "anthropic" } = req.body as { prompt?: unknown; backend?: unknown };
 
   if (!prompt || typeof prompt !== "string") {
     res.status(400).json({ error: "prompt is required" });
     return;
   }
+  if (!isBackend(backend)) {
+    res.status(400).json({ error: `backend must be one of: ${BACKENDS.join(", ")}` });
+    return;
+  }
 
   try {
-    const model =
-      backend === "ollama" ? makeOllamaModel() :
-      backend === "bedrock" ? makeBedrockModel() :
-      makeAnthropicModel();
-    const agent = new Agent({ model, tools: [calculator, currentTime] });
+    const agent = new Agent({ model: makeModel(backend), tools: [calculator, currentTime] });
     const result = await agent.invoke(prompt);
     res.json({ response: result.toString() });
   } catch (err) {

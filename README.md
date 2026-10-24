@@ -10,7 +10,7 @@ A TypeScript playground built around three main components:
 
 - **Chat UI** — browser front-end for sending prompts and reading responses from the agent backend
 - **Strands agent via AWS Bedrock, Anthropic, or Ollama** — runs any supported model through the Strands SDK with built-in tools (`calculator`, `current_time`); Ollama is wired through Strands' OpenAI-compatible provider so all backends share the same agent API
-- **Express chat API** — `POST /api/chat` endpoint that proxies prompts from the UI to the Strands agent; supports a `backend` field (`"bedrock"` or `"ollama"`)
+- **Express chat API** — `POST /api/chat` endpoint that proxies prompts from the UI to the Strands agent; supports a `backend` field (`"anthropic"` (default), `"ollama"` or `"bedrock"`)
 - **Weather Underground MCP server** — stateless MCP server exposing three tools over HTTP:
   - `get_current_conditions` — live PWS observations
   - `get_hourly_history` — 7-day hourly history
@@ -33,7 +33,7 @@ cp .env.example .env   # fill in your credentials
 ## Usage
 
 ```bash
-npm run strands          # run the Strands agent via AWS Bedrock
+npm run strands          # run the Strands agent via Anthropic + Weather MCP tools
 npm run ollama           # run the Strands agent via local Ollama
 npm run server           # start the Express chat API on port 3001
 npm run weather:server   # start the FastMCP Weather Underground server on port 3003
@@ -61,14 +61,19 @@ Connect any MCP-compatible client (e.g. Claude Desktop) to this endpoint to use 
 
 ```
 src/
-  strands-agent.ts      # runnable Strands agent (AWS Bedrock)
+  index.ts              # lists the runnable scripts
+  strands-agent.ts      # runnable Strands agent (Anthropic + Weather MCP)
   ollama-agent.ts       # runnable Strands agent (local Ollama via OpenAI-compatible provider)
   server.ts             # Express HTTP API
   tools.ts              # shared tool definitions (calculator, current_time)
-  models.ts             # model factory functions (Bedrock, Anthropic, Ollama)
-  weather-test.ts       # direct WU API test script
+  models.ts             # model factory functions (Bedrock, Anthropic, Ollama) + makeModel(backend)
+  weather/
+    client.ts           # shared WU API client (wuFetch, requireEnv)
+    main.ts             # direct WU API test script (npm run weather:test)
+    weather-test.ts     # print helpers for current, hourly and daily data
+    types.ts            # WU API response types
   mcp/
-    weather-server.ts   # FastMCP Weather Underground MCP server
+    mcp-weather-server.ts  # FastMCP Weather Underground MCP server
   ui/                   # browser chat UI (Vite/React — App.tsx, main.tsx)
 tests/
   tools.test.ts
@@ -91,3 +96,4 @@ tests/
 | `WU_API_KEY` | Weather Underground API key |
 | `WU_STATION_ID` | PWS station ID (e.g. `IXXXXX1`) |
 | `WU_MCP_PORT` | MCP server port (default: `3003`) |
+| `WU_MCP_URL` | MCP endpoint used by `npm run strands` (default: `http://localhost:3003/mcp`) |
