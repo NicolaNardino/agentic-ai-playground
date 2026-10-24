@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 
-type Backend = "ollama" | "bedrock";
+type Backend = "anthropic" | "ollama" | "bedrock";
 
 interface Message {
   role: "user" | "assistant" | "error";
@@ -60,6 +60,7 @@ export default function App() {
           disabled={loading}
         >
           <option value="ollama">Ollama (local)</option>
+          <option value="anthropic">Anthropic</option>
           <option value="bedrock">AWS Bedrock</option>
         </select>
       </header>
