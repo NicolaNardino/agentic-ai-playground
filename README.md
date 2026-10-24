@@ -33,13 +33,27 @@ cp .env.example .env   # fill in your credentials
 ## Usage
 
 ```bash
-npm run strands          # run the Strands agent via Anthropic + Weather MCP tools
+npm run strands          # run the Strands agent via Anthropic + Weather MCP tools (start weather:server first)
 npm run ollama           # run the Strands agent via local Ollama
 npm run server           # start the Express chat API on port 3001
+npm run ui               # install and start the chat UI (Vite dev server, proxies /api to port 3001)
 npm run weather:server   # start the FastMCP Weather Underground server on port 3003
 npm run weather:test     # test WU API credentials directly (no server needed)
-npm test                 # run all unit tests
+npm test                 # run all unit tests (no LLM or network calls)
+npm run typecheck        # type-check without emitting
+npm run build            # compile to dist/
 ```
+
+### Chat UI
+
+Start the API and the UI in two terminals, then open the URL Vite prints:
+
+```bash
+npm run server
+npm run ui
+```
+
+The UI lets you pick the backend per request (Ollama or Bedrock).
 
 ### Chat API
 
@@ -79,7 +93,17 @@ tests/
   tools.test.ts
   models.test.ts
   agent.test.ts
+.github/workflows/ci.yml  # GitHub Actions CI
 ```
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request to `main`, on Node 22:
+
+- **agent** — `npm ci`, `npm run typecheck`, `npm test`, `npm run build`
+- **ui** — `npm ci` and `npm run build` in `src/ui`
+
+The tests make no LLM or network calls, so CI needs no secrets.
 
 ## Environment variables
 
