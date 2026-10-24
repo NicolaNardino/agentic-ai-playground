@@ -89,6 +89,10 @@ npm run build            # Compile to dist/
 npx vitest run tests/tools.test.ts
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on push / PR to `main` under Node 22 with two jobs: **agent** (`npm ci`, `typecheck`, `test`, `build` at the root) and **ui** (`npm ci` + `npm run build` in `src/ui`). Tests make no LLM or network calls, so CI needs no secrets.
+
 ## Architecture
 
 Agent logic lives in two shared modules (`tools.ts`, `models.ts`); Weather Underground access lives in `src/weather/client.ts`. Agent scripts and tests import from these; never duplicate definitions.
