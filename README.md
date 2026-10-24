@@ -53,7 +53,7 @@ npm run server
 npm run ui
 ```
 
-The UI lets you pick the backend per request (Ollama or Bedrock).
+The UI lets you pick the backend per request (Ollama, Anthropic or Bedrock; Ollama is the default). A backend without credentials returns an error message in the chat.
 
 ### Chat API
 
